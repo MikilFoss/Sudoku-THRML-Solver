@@ -1,13 +1,13 @@
 # THRML Probabilistic Sudoku Solver
 
-A scalable Sudoku solver built using [THRML](https://github.com/extropic-ai/thrml)'s energy-based models and block Gibbs sampling. This project demonstrates how to use probabilistic graphical models to solve constraint satisfaction problems.
+A scalable Sudoku solver built using [THRML](https://github.com/extropic-ai/thrml)'s energy-based models and block Gibbs sampling. This project demonstrates how to use probabilistic graphical models to solve constraint satisfaction problems through an interactive web interface.
 
 ## Features
 
 - **Scalable Grid Sizes**: Supports standard 9×9 Sudoku as well as larger grids (16×16, 25×25, etc.)
 - **Energy-Based Modeling**: Uses THRML's energy-based framework to model Sudoku constraints
 - **Block Gibbs Sampling**: Efficient sampling strategy for finding solutions
-- **CLI Interface**: Clean command-line interface for solving and generating puzzles
+- **Interactive Web Interface**: Real-time visualization of the solving process
 - **Performance Tracking**: Monitors convergence metrics and solution quality
 
 ## Installation
@@ -24,31 +24,18 @@ uv pip install -r requirements.txt
 
 ## Usage
 
-### Solve a puzzle from a file
+Start the Flask web server:
 
 ```bash
-python -m src.cli --puzzle puzzle.csv --size 9
+python src/app.py
 ```
 
-### Generate and solve a new puzzle
+Then open your browser to `http://localhost:5000` to access the interactive Sudoku solver interface.
 
-```bash
-python -m src.cli --generate --size 9 --warmup 1000 --samples 5000
-```
-
-### Verbose output with convergence tracking
-
-```bash
-python -m src.cli --generate --size 9 --verbose
-```
-
-## Project Structure
-
-- `src/sudoku_model.py` - THRML model definition for Sudoku
-- `src/solver.py` - Block Gibbs sampling implementation
-- `src/puzzle_generator.py` - Puzzle generation and validation
-- `src/cli.py` - Command-line interface
-- `examples/demo.py` - Example usage scripts
+You can:
+- Generate new puzzles of varying difficulty
+- Watch the solver work in real-time as it finds solutions
+- Adjust solver parameters (beta, max iterations)
 
 ## How It Works
 
