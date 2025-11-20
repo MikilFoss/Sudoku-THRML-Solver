@@ -1,14 +1,6 @@
 # THRML Probabilistic Sudoku Solver
 
-A scalable Sudoku solver built using [THRML](https://github.com/extropic-ai/thrml)'s energy-based models and block Gibbs sampling. This project demonstrates how to use probabilistic graphical models to solve constraint satisfaction problems through an interactive web interface.
-
-## Features
-
-- **Scalable Grid Sizes**: Supports standard 9×9 Sudoku as well as larger grids (16×16, 25×25, etc.)
-- **Energy-Based Modeling**: Uses THRML's energy-based framework to model Sudoku constraints
-- **Block Gibbs Sampling**: Efficient sampling strategy for finding solutions
-- **Interactive Web Interface**: Real-time visualization of the solving process
-- **Performance Tracking**: Monitors convergence metrics and solution quality
+A scalable Sudoku solver built using [THRML](https://github.com/extropic-ai/thrml)'s energy-based models and systematic scan Gibbs sampling. This project demonstrates how to use probabilistic graphical models to solve constraint satisfaction problems.
 
 ## Installation
 
@@ -33,6 +25,7 @@ python src/app.py
 Then open your browser to `http://localhost:5000` to access the interactive Sudoku solver interface.
 
 You can:
+
 - Generate new puzzles of varying difficulty
 - Watch the solver work in real-time as it finds solutions
 - Adjust solver parameters (beta, max iterations)
@@ -40,11 +33,8 @@ You can:
 ## How It Works
 
 The solver models Sudoku as a probabilistic graphical model where:
+
 - Each cell is a node with N possible states (1 to N)
 - Constraints (rows, columns, boxes) are represented as edges
 - An energy function penalizes constraint violations
-- Block Gibbs sampling explores the solution space efficiently
-
-## License
-
-MIT License
+- Systematic scan Gibbs sampling explores the solution space efficiently
