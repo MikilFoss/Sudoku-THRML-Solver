@@ -1,0 +1,372 @@
+:root {
+    /* Peachy and Earth Palette */
+    --bg-color: #FFF8DC;
+    /* Cornsilk */
+    --card-bg: #FAEBD7;
+    /* AntiqueWhite */
+
+    --primary-color: #D2691E;
+    /* Chocolate */
+    --primary-hover: #8B4513;
+    /* SaddleBrown */
+
+    --accent-color: #556B2F;
+    /* DarkOliveGreen */
+    --accent-hover: #334418;
+
+    --text-color: #3E2723;
+    /* Dark Brown */
+    --text-muted: #8D6E63;
+    /* Brownish Gray */
+
+    --border-color: #D7CCC8;
+    --grid-line-color: #8D6E63;
+
+    --cell-bg: #FFF5E1;
+    --cell-hover: #FFE0B2;
+    --cell-selected: #FFCC80;
+    /* Orange Peachy */
+    --cell-related: #FFE0B2;
+    /* Lighter Peach */
+
+    --clue-color: #3E2723;
+    /* Dark Brown */
+    --input-color: #D84315;
+    /* Deep Orange */
+    --solved-color: #2E7D32;
+    /* Green */
+    --error-color: #C62828;
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    font-family: 'Outfit', sans-serif;
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    display: flex;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 2rem;
+}
+
+.main-layout {
+    display: flex;
+    gap: 2rem;
+    width: 100%;
+    max-width: 1200px;
+    align-items: flex-start;
+}
+
+.left-panel {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+    max-width: 500px;
+}
+
+.right-panel {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.explainer-card,
+.stats-card,
+.chart-container {
+    background-color: var(--card-bg);
+    padding: 1.5rem;
+    border-radius: 1rem;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+.explainer-card h2,
+.stats-card h3 {
+    margin-bottom: 1rem;
+    color: var(--primary-color);
+}
+
+.explainer-card p {
+    margin-bottom: 0.75rem;
+    line-height: 1.6;
+    color: var(--text-color);
+}
+
+.chart-container {
+    height: 300px;
+    position: relative;
+}
+
+/* Hide original container styles if any remain */
+.container {
+    display: none;
+}
+
+header {
+    text-align: center;
+}
+
+header h1 {
+    font-size: 2.5rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+    background: linear-gradient(to right, var(--primary-color), var(--accent-color));
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+header p {
+    color: var(--text-muted);
+}
+
+.game-controls {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-bottom: 1rem;
+}
+
+.difficulty-selector {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.control-group {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.control-group label {
+    font-weight: 500;
+    color: var(--text-secondary);
+}
+
+select,
+input[type="number"] {
+    padding: 0.5rem;
+    border: 1px solid var(--border-color);
+    border-radius: 0.5rem;
+    font-family: inherit;
+    background-color: white;
+    color: var(--text-color);
+    cursor: pointer;
+}
+
+.btn {
+    padding: 0.75rem 1.5rem;
+    border: none;
+    border-radius: 0.5rem;
+    font-family: inherit;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.btn.primary {
+    background-color: var(--primary-color);
+    color: white;
+}
+
+.btn.primary:hover {
+    background-color: var(--primary-hover);
+}
+
+.btn.accent {
+    background-color: var(--accent-color);
+    color: white;
+}
+
+.btn.accent:hover {
+    background-color: var(--accent-hover);
+}
+
+.btn.secondary {
+    background-color: var(--border-color);
+    color: var(--text-color);
+}
+
+.btn.secondary:hover {
+    background-color: var(--grid-line-color);
+}
+
+.game-board-container {
+    display: flex;
+    justify-content: center;
+}
+
+.sudoku-board {
+    display: grid;
+    grid-template-columns: repeat(9, 1fr);
+    gap: 1px;
+    background-color: var(--grid-line-color);
+    border: 2px solid var(--grid-line-color);
+    width: 100%;
+    aspect-ratio: 1;
+    max-width: 500px;
+}
+
+.cell {
+    background-color: var(--cell-bg);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 1.5rem;
+    font-weight: 500;
+    cursor: pointer;
+    user-select: none;
+    transition: background-color 0.1s;
+    position: relative;
+}
+
+.cell:hover {
+    background-color: var(--cell-hover);
+}
+
+.cell.selected {
+    background-color: var(--cell-selected) !important;
+    color: white;
+}
+
+.cell.related {
+    background-color: var(--cell-related);
+}
+
+.cell.clue {
+    color: var(--clue-color);
+    font-weight: 700;
+}
+
+.cell.user-input {
+    color: var(--input-color);
+}
+
+.cell.solved {
+    color: var(--solved-color);
+    animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+/* Thick borders for 3x3 boxes */
+.cell:nth-child(3n) {
+    border-right: 2px solid var(--grid-line-color);
+}
+
+.cell:nth-child(9n) {
+    border-right: none;
+}
+
+.sudoku-board {
+    /* Use grid-gap for internal lines, but we need special handling for box borders */
+    /* This is a simplified approach, might need adjustment for perfect box borders */
+    padding: 2px;
+    background-color: var(--grid-line-color);
+    gap: 1px;
+}
+
+/* Add thicker borders for boxes using pseudo-elements or specific child selection */
+/* A better way for 3x3 grids is to use nested grids or specific margins */
+.cell {
+    margin: 0;
+}
+
+.cell:nth-child(3n) {
+    margin-right: 2px;
+}
+
+.cell:nth-child(9n) {
+    margin-right: 0;
+}
+
+/* Rows */
+.cell:nth-child(n+19):nth-child(-n+27),
+.cell:nth-child(n+46):nth-child(-n+54) {
+    margin-bottom: 2px;
+}
+
+.action-controls {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+}
+
+.action-controls .btn {
+    flex: 1;
+}
+
+.status-message {
+    text-align: center;
+    min-height: 1.5rem;
+    font-weight: 500;
+}
+
+.stats-container {
+    background-color: var(--card-bg);
+    padding: 1rem;
+    border-radius: 1rem;
+    margin-top: 1rem;
+}
+
+.stats-container.hidden {
+    display: none;
+}
+
+.stats-container h3 {
+    margin-bottom: 1rem;
+    font-size: 1.1rem;
+    color: var(--text-muted);
+}
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+}
+
+.stat-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.stat-label {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+
+.stat-value {
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: var(--primary-color);
+}
+
+@keyframes popIn {
+    0% {
+        transform: scale(0.5);
+        opacity: 0;
+    }
+
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+@media (max-width: 500px) {
+    .cell {
+        font-size: 1.2rem;
+    }
+
+    header h1 {
+        font-size: 2rem;
+    }
+}

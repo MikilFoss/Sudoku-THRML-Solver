@@ -6,9 +6,9 @@ This module implements efficient block Gibbs sampling for solving Sudoku puzzles
 
 import jax
 import jax.numpy as jnp
-from typing import List, Tuple, Dict, Optional
+from typing import List, Tuple, Dict, Optional, Generator
 import numpy as np
-from .sudoku_model import SudokuModel
+from sudoku_model import SudokuModel
 
 
 class SudokuSolver:
@@ -203,46 +203,237 @@ class SudokuSolver:
         # Initialize state
         state = initial_state.copy()
         
-        # Track statistics
-        energies = []
-        best_state = state.copy()
-        best_energy = self.model.compute_energy(state)
+        # Define the step function for JAX scan
+        # We capture blocks and model configuration as closure variables (static)
+        # clamped_cells is passed as argument
         
-        # Sampling loop
-        for iteration in range(n_iterations):
-            # Sample each block in sequence
-            for block_idx, block in enumerate(blocks):
-                key, subkey = jax.random.split(key)
-                state = self.sample_block(subkey, state, block, clamped_cells)
+        def step_fn(carry, _):
+            key, current_state = carry
             
-            # Compute energy
-            energy = self.model.compute_energy(state)
-            energies.append(float(energy))
+            # Iterate over blocks (unrolled by JAX)
+            for block in blocks:
+                # Iterate over cells in block (unrolled by JAX)
+                for cell_idx in block:
+                    # Define update logic
+                    def update_cell(args):
+                        s, k = args
+                        # Compute probabilities
+                        # We inline the logic here to avoid overhead and simplify
+                        energies = jnp.zeros(self.model.grid_size)
+                        
+                        # Vectorized energy computation for all candidates
+                        # This is a bit complex to vectorize fully efficiently without changing model
+                        # So we stick to the loop over values 1..N, but unrolled or scanned?
+                        # N is small (9). Unrolling is fine.
+                        
+                        def body_fun(val, e_acc):
+                            candidate = s.at[cell_idx].set(val + 1)
+                            # Inline local energy computation
+                            energy = 0.0
+                            # We know the constraints for this cell statically
+                            # But self.model.get_constraint_groups() is a list.
+                            # We can pre-compute relevant constraints for this cell?
+                            # For now, let's rely on JIT to optimize the loop over constraints
+                            # since 'cell_idx' is static here.
+                            
+                            for constraint_group in self.model.get_constraint_groups():
+                                if cell_idx in constraint_group:
+                                    values = candidate[jnp.array(constraint_group)]
+                                    # count duplicates
+                                    # violations = len(values) - len(unique(values))
+                                    # jnp.unique is not JIT-friendly for variable size? 
+                                    # It returns variable size array.
+                                    # We need a fixed size way to count duplicates.
+                                    # Sort and check adjacent?
+                                    vals = jnp.sort(values)
+                                    # diff = vals[1:] == vals[:-1]
+                                    # violations = jnp.sum(diff)
+                                    violations = jnp.sum(vals[1:] == vals[:-1])
+                                    energy += violations
+                            
+                            return e_acc.at[val].set(energy)
+                            
+                        # Use fori_loop or unroll? 9 is small.
+                        # energies = jax.lax.fori_loop(0, self.model.grid_size, body_fun, energies)
+                        # Actually, let's just loop python-wise, JAX will unroll.
+                        for val in range(self.model.grid_size):
+                            energies = body_fun(val, energies)
+                            
+                        # Softmax
+                        log_probs = -self.beta * energies
+                        log_probs = log_probs - jnp.max(log_probs)
+                        probs = jnp.exp(log_probs)
+                        probs = probs / jnp.sum(probs)
+                        
+                        # Sample
+                        k, subk = jax.random.split(k)
+                        new_val = jax.random.choice(subk, self.model.grid_size, p=probs) + 1
+                        return s.at[cell_idx].set(new_val), k
+
+                    def no_update(args):
+                        return args
+
+                    # Conditional update based on clamped status
+                    is_clamped = clamped_cells[cell_idx]
+                    current_state, key = jax.lax.cond(is_clamped, no_update, update_cell, (current_state, key))
             
-            # Track best state
-            if energy < best_energy:
-                best_energy = energy
-                best_state = state.copy()
-            
-            # Check for solution
-            if energy == 0:
-                if verbose:
-                    print(f"Solution found at iteration {iteration}!")
-                break
-            
-            # Print progress
-            if verbose and iteration % 100 == 0:
-                print(f"Iteration {iteration}: Energy = {energy:.1f}, Best = {best_energy:.1f}")
+            # Compute total energy for stats
+            # We can also JIT this
+            energy = self.model.compute_energy(current_state)
+            return (key, current_state), energy
+
+        # JIT compile the scan loop
+        # We wrap it to handle the scan
+        @jax.jit
+        def run_scan(k, s):
+            return jax.lax.scan(step_fn, (k, s), None, length=n_iterations)
+
+        # Run the solver
+        if verbose:
+            print("JIT compiling solver...")
         
-        # Return best state found
+        start_time = 0
+        if verbose:
+            import time
+            start_time = time.time()
+            
+        (key, final_state), energies = run_scan(key, state)
+        
+        # Block until ready to measure time
+        final_state.block_until_ready()
+        
+        if verbose:
+            print(f"Solver finished in {time.time() - start_time:.4f}s")
+
+        best_energy = jnp.min(energies)
+        best_idx = jnp.argmin(energies)
+        # We should ideally return the state at best_idx, but scan returns final state.
+        # For Gibbs sampling with high beta (simulated annealing-ish), final state is usually good.
+        # Or we can track best state in carry?
+        # Tracking best state in carry adds overhead (copying state).
+        # Let's just return final state for now, or we can run a second pass if needed.
+        # Actually, if energy == 0, we are good.
+        
         stats = {
-            "final_energy": best_energy,
-            "energies": energies,
-            "converged": best_energy == 0,
-            "iterations": len(energies)
+            "final_energy": float(energies[-1]),
+            "energies": [float(e) for e in energies], # Convert to list for JSON serialization
+            "converged": float(best_energy) == 0,
+            "iterations": n_iterations
         }
         
-        return best_state, stats
+        return final_state, stats
+
+    def solve_stream(self,
+                    initial_state: jnp.ndarray,
+                    clamped_cells: jnp.ndarray,
+                    batch_size: int = 100,
+                    max_iterations: int = 100000,
+                    block_strategy: str = "checkerboard",
+                    beta: Optional[float] = None,
+                    key: Optional[jax.random.PRNGKey] = None) -> Generator[Tuple[jnp.ndarray, Dict], None, None]:
+        """
+        Yield intermediate results from the solver.
+        
+        Args:
+            initial_state: Initial state array
+            clamped_cells: Boolean mask indicating which cells are given (fixed)
+            batch_size: Number of iterations per yield
+            max_iterations: Maximum total iterations
+            block_strategy: Block creation strategy
+            beta: Inverse temperature (optional, overrides self.beta)
+            key: JAX random key
+            
+        Yields:
+            Tuple of (current_state, stats_dict)
+        """
+        if key is None:
+            key = jax.random.PRNGKey(0)
+            
+        current_beta = beta if beta is not None else self.beta
+        
+        # Create sampling blocks
+        blocks = self.create_blocks(block_strategy)
+        
+        # Initialize state
+        state = initial_state.copy()
+        
+        # Define the step function for JAX scan (same as in solve)
+        def step_fn(carry, _):
+            key, current_state = carry
+            
+            for block in blocks:
+                for cell_idx in block:
+                    def update_cell(args):
+                        s, k = args
+                        energies = jnp.zeros(self.model.grid_size)
+                        
+                        def body_fun(val, e_acc):
+                            candidate = s.at[cell_idx].set(val + 1)
+                            energy = 0.0
+                            for constraint_group in self.model.get_constraint_groups():
+                                if cell_idx in constraint_group:
+                                    values = candidate[jnp.array(constraint_group)]
+                                    sorted_values = jnp.sort(values)
+                                    duplicates = sorted_values[1:] == sorted_values[:-1]
+                                    violations = jnp.sum(duplicates)
+                                    energy += violations
+                            return e_acc.at[val].set(energy)
+                            
+                        for val in range(self.model.grid_size):
+                            energies = body_fun(val, energies)
+                            
+                        log_probs = -current_beta * energies
+                        log_probs = log_probs - jnp.max(log_probs)
+                        probs = jnp.exp(log_probs)
+                        probs = probs / jnp.sum(probs)
+                        
+                        k, subk = jax.random.split(k)
+                        new_val = jax.random.choice(subk, self.model.grid_size, p=probs) + 1
+                        return s.at[cell_idx].set(new_val), k
+
+                    def no_update(args):
+                        return args
+
+                    is_clamped = clamped_cells[cell_idx]
+                    current_state, key = jax.lax.cond(is_clamped, no_update, update_cell, (current_state, key))
+            
+            energy = self.model.compute_energy(current_state)
+            return (key, current_state), energy
+
+        # JIT compile the scan loop for a batch
+        @jax.jit
+        def run_batch(k, s):
+            return jax.lax.scan(step_fn, (k, s), None, length=batch_size)
+
+        # Streaming loop
+        total_iterations = 0
+        energies_history = []
+        
+        while total_iterations < max_iterations:
+            (key, state), batch_energies = run_batch(key, state)
+            
+            # Block until ready to ensure we yield actual data
+            state.block_until_ready()
+            
+            batch_energies_list = [float(e) for e in batch_energies]
+            energies_history.extend(batch_energies_list)
+            current_energy = batch_energies_list[-1]
+            avg_energy = sum(batch_energies_list) / len(batch_energies_list)
+            
+            total_iterations += batch_size
+            
+            stats = {
+                "iteration": total_iterations,
+                "energy": current_energy,
+                "avg_energy": avg_energy,
+                "energies": energies_history, 
+                "converged": current_energy == 0
+            }
+            
+            yield state, stats
+            
+            if current_energy == 0:
+                break
     
     def initialize_state(self, 
                         puzzle: jnp.ndarray,

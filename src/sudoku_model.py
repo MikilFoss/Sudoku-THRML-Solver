@@ -120,11 +120,11 @@ class SudokuModel:
     @staticmethod
     def _count_duplicates(values: jnp.ndarray) -> int:
         """Count the number of duplicate values in an array."""
-        unique_values = jnp.unique(values)
-        n_unique = len(unique_values)
-        n_total = len(values)
-        # Number of duplicates = total - unique
-        return n_total - n_unique
+        # JIT-friendly implementation using sort
+        sorted_values = jnp.sort(values)
+        # Check adjacent elements
+        duplicates = sorted_values[1:] == sorted_values[:-1]
+        return jnp.sum(duplicates)
     
     def get_constraint_groups(self) -> List[List[int]]:
         """Get all constraint groups (rows, columns, boxes)."""
